@@ -1,102 +1,159 @@
-# Proyek Sistem Keamanan Rumah Multi-Sensor dengan ESP32
-
 # Multi-Sensor Home Security System with ESP32
 
-A smart home security system based on the ESP32, designed to detect various potential hazards in real-time. This project integrates multiple sensors to monitor environmental conditions and provide early warnings through a dynamic audio alarm.
+## 🎯 Project Vision
 
-## 📜 Status Proyek
+This project is an *open-source* initiative to transform a conventional house into a smart home by developing practical and useful automated modules. The goal is to create a system that is reliable, easily expandable, and adaptable to various home automation needs.
 
-## 📜 Project Status
+**Current Status:** `Functional Prototype`
 
-**Status:** `Functional Prototype`
+---
 
-The system currently successfully detects fire, LPG gas, and smoke, and is capable of activating an audio alarm corresponding to the type of threat. Future development will focus on adding connectivity features and other sensors.
+## ✨ Key Features
 
-## Fitur
+- **Comprehensive Hazard Detection:**
+  - **Fire:** Rapid detection using an infrared sensor.
+  - **LPG Gas:** Gas leak detection using an MQ-6 sensor.
+  - **Smoke:** Smoke detection from potential fires using an MQ-2 sensor.
+- **Smart Water Pump Control:**
+  - **Two-Step Verification:** Prevents the pump from running dry by first checking for **water presence** in the pipe, then verifying the **water flow** after the pump starts.
+  - **Flow Monitoring:** Measures and displays the water flow rate (Liters per Minute) while the pump is operating.
+- **Intelligent Alert System:**
+  - **Hazard Alarms:** Distinct alarm tones for each type of hazard (fire, gas, smoke).
+  - **Pump Alarm:** A unique, intermittent alarm if the water tank requests water but the main supply is unavailable.
+- **Professional Code Architecture:**
+  - **Non-Blocking:** The entire system runs without disruptive `delay()` calls, ensuring high responsiveness.
+  - **State Machines:** Efficiently and structurally manages the status of each module (alarms, pump).
 
-## Features
+---
 
-- **Flame Detection:** Uses an infrared (IR) sensor for rapid detection of flames.
-- **LPG Leak Detection:** Utilizes an MQ-6 gas sensor optimized for detecting Propane and Butane.
-- **Smoke Detection:** Employs an MQ-2 sensor to detect smoke from potential fires.
-- **Smart Audio Alarm:** The speaker emits different tones for each type of hazard, allowing for quick threat identification.
-- **Real-time Monitoring:** All sensor statuses can be monitored live via the Serial Monitor for debugging and calibration.
-- **State Machine Logic:** Prevents the alarm from running inefficiently by only activating or deactivating it when the status changes.
+## 📖 Installation and Usage Guide
 
-## ⚙️ Hardware Requirements
+Follow these steps sequentially to assemble and run the system.
 
-- 1x ESP32 DevKit V4 (atau yang kompatibel)
-- 1x Sensor Api (Flame Sensor Module, Digital Output)
-- 1x Sensor Gas MQ-6 (LPG)
-- 1x Sensor Gas MQ-2 (Asap)
-- 1x Speaker Pasif (Passive Speaker)
-- 1x Breadboard
-- Kabel Jumper
+### Step 1: Hardware Requirements
 
-## 🔌 Wiring Diagram
+| Qty | Component | Function |
+|:---:|:---|:---|
+| 1x | ESP32 DevKit V4 (or compatible) | The brain of the entire system. |
+| 1x | Flame Sensor | Detects open flames. |
+| 1x | MQ-6 Gas Sensor | Detects LPG gas leaks. |
+| 1x | MQ-2 Gas Sensor | Detects smoke. |
+| 1x | Passive Speaker | Provides audible alarms. |
+| 1x | AC Voltage Detection Module | Senses requests from the tank's float switch. |
+| 1x | Capacitive Level Sensor (XKC-Y25-NPN) | Checks for the presence of water in the pipe. |
+| 1x | Water Flow Sensor (YF-S201) | Verifies and measures water flow. |
+| 1x | 1-Channel 5V Relay Module (10A min.) | Electronic switch to control the pump. |
+| 1x | Breadboard & Jumper Wires | For assembling the circuit. |
 
-Pastikan semua komponen terhubung ke ESP32 sesuai dengan tabel berikut:
+### Step 2: Assembly and Wiring
 
-| Komponen | Pin Komponen | Terhubung ke Pin ESP32 | Keterangan |
-| :--- | :--- | :--- | :--- |
-| **Flame Sensor** | `VCC` | `3V3` | 3.3V Power Supply. |
-| | `GND` | `GND` | Connected to ground. |
-| | `DO` | `GPIO 27` | Digital detection signal. |
-| **MQ-6 Sensor (LPG)** | `VCC` | `VIN` | **Important:** Requires 5V for the heater. |
-| | `GND` | `GND` | Connected to ground. |
-| | `AO` | `GPIO 34` | Analog gas concentration signal. |
-| **MQ-2 Sensor (Smoke)** | `VCC` | `VIN` | Shares 5V power with MQ-6. |
-| | `GND` | `GND` | Connected to ground. |
-| | `AO` | `GPIO 35` | Analog smoke concentration signal. |
-| **Passive Speaker** | `Positive (+)` | `GPIO 25` | Tone signal from ESP32. |
-| | `Negative (-)` | `GND` | Connected to ground. |
+#### A. Low-Voltage Connections (ESP32 to Modules)
 
-## 🛠️ Software Requirements
+Connect all sensors and modules to the ESP32 according to the following table. Pay attention to the `VIN` (for 5V) and `3V3` (for 3.3V) pins.
 
-- Visual Studio Code
-- Ekstensi PlatformIO IDE untuk VSCode
+| Component | Component Pins | Connect to ESP32 Pins |
+|:---|:---|:---|
+| **Flame Sensor** | `VCC`, `GND`, `DO` | `3V3`, `GND`, `GPIO 27` |
+| **MQ-6 Gas Sensor (LPG)** | `VCC`, `GND`, `AO` | `VIN`, `GND`, `GPIO 34` |
+| **MQ-2 Gas Sensor (Smoke)** | `VCC`, `GND`, `AO` | `VIN`, `GND`, `GPIO 35` |
+| **Passive Speaker** | `+`, `-` | `GPIO 25`, `GND` |
+| **AC Voltage Sensor** | `VCC`, `GND`, `Signal/OUT` | `3V3`, `GND`, `GPIO 32` |
+| **Capacitive Level Sensor** | `VCC (Brown)`, `GND (Blue)`, `Signal (Black)` | `VIN`, `GND`, `GPIO 13` |
+| **Water Flow Sensor** | `VCC (Red)`, `GND (Black)`, `Signal (Yellow)` | `VIN`, `GND`, `GPIO 12` |
+| **Relay Module** | `VCC`, `GND`, `IN` | `VIN`, `GND`, `GPIO 26` |
 
-## 🚀 Setup & Installation
+#### B. High-Voltage Connections (AC 220V)
 
-1.  Clone repositori ini ke komputer Anda.
-2.  Buka folder proyek menggunakan Visual Studio Code.
-3.  PlatformIO will automatically detect the `platformio.ini` file and install the Arduino framework for ESP32.
+> **⚠️ CRITICAL WARNING:** This section involves high-voltage electricity which is **EXTREMELY DANGEROUS**. Mistakes can lead to serious injury or death. If you are not 100% confident, **it is highly recommended to seek help from a professional electrician.** Ensure the main power source (MCB) to the pump is completely turned off before starting.
 
-## 🔬 Configuration & Calibration (Critical Step!)
+This system intercepts the signal from your mechanical float switch.
 
-Sensor gas MQ memerlukan kalibrasi untuk berfungsi dengan benar di lingkungan Anda dan menghindari alarm palsu.
+1.  **Identify Wires:**
+    - **Live & Neutral Source Wires:** From your main power supply.
+    - **Request Wire:** The Live wire coming *out* of your tank's float switch.
 
-1.  **Sensor Warm-up (Burn-in):** After assembling and uploading the code for the first time, let the device run undisturbed for **at least 15-30 minutes**. This is crucial for the heating element inside the gas sensors to reach a stable operating temperature.
-2.  **Observe Clean Air Values:** Open the **Serial Monitor** in PlatformIO (ensure the baud rate is set to `115200`). Observe the `LPG (MQ-6)` and `Smoke (MQ-2)` values in clean, well-ventilated air. Record their average values after they have stabilized (e.g., around 1500).
-3.  **Atur Ambang Batas:**
-    - Buka file `src/main.cpp`.
-    - Cari konstanta `LPG_THRESHOLD` dan `SMOKE_THRESHOLD`.
-    - Change their values to a number **significantly higher** than the clean air values you recorded. As a safe starting point, add 500-700 to the normal value. For example, if the normal value is 1500, set the threshold to `2200`.
-    ```cpp
-    const int LPG_THRESHOLD   = 2200; // Adjust this value!
-    const int SMOKE_THRESHOLD = 2200; // Adjust this value!
-    ```
-4.  **Re-upload:** Save the changes and upload the code to your ESP32 again.
+2.  **Connect the "Request Wire" to Two Places:**
+    - **To the AC Voltage Sensor:** Connect the `Request Wire` to one AC input terminal on the sensor. Connect the `Neutral Source Wire` to the other AC input terminal. This tells the ESP32 that the tank is requesting water.
+    - **To the Relay Module:** Branch the `Request Wire` and connect it to the **`COM` (Common)** terminal on the relay.
 
-## 🕹️ How to Use
+3.  **Connect the Relay to the Pump:**
+    - Connect the **`NO` (Normally Open)** terminal on the relay to the **Live** terminal of the Water Pump.
 
-1.  Pastikan semua komponen terhubung dengan benar sesuai diagram.
-2.  Hubungkan ESP32 ke komputer melalui kabel USB.
-3.  In VSCode, use PlatformIO to **Build** and **Upload** the project.
-4.  After the upload is complete, open the **Serial Monitor** to monitor the sensor status.
-5.  The system is now active. Try bringing a flame source, gas (from an unlit lighter), or smoke near the respective sensors to test each alarm.
+4.  **Connect the Pump's Neutral:**
+    - Connect the `Neutral Source Wire` directly to the **Neutral** terminal of the Water Pump.
+
+### Step 3: Telegram Bot Setup (for Notifications)
+
+To receive real-time notifications on your phone, you need to create a Telegram Bot.
+
+1.  **Create a New Bot:**
+    - In the Telegram app, search for `BotFather` (it has a blue checkmark).
+    - Start a chat and type `/newbot`.
+    - Follow the instructions to give your bot a name (e.g., "Smart Home Alarm") and a username (which must end in `bot`, e.g., `MySmartHomeAlertBot`).
+    - **BotFather** will give you a secret **API Token**. Copy and save this token carefully.
+
+2.  **Get Your Chat ID:**
+    - **For Personal Notifications:** Search for the `userinfobot`, start a chat, and it will immediately give you your numeric **Chat ID**.
+    - **For Group Notifications:**
+        1. Create a new Telegram group.
+        2. Add the bot you just created as a member of the group.
+        3. Add `userinfobot` to the group.
+        4. Type `/my_id` in the group. `userinfobot` will reply with the group's **Chat ID**. It will be a negative number (e.g., `-1001234567890`).
+
+3.  **Update the Code:**
+    - Open the `src/main.cpp` file.
+    - Find the `WiFi & Telegram Configuration` section.
+    - Replace the placeholder values for `WIFI_SSID`, `WIFI_PASSWORD`, `TELEGRAM_BOT_TOKEN`, and `TELEGRAM_CHAT_ID` with your actual credentials.
+
+### Step 4: Software Setup
+
+1.  **Installation:**
+    - Install **Visual Studio Code**.
+    - Install the **PlatformIO IDE** extension from within VS Code.
+2.  **Open Project:**
+    - Clone this repository.
+    - Open the project folder in VS Code (`File > Open Folder...`).
+    - PlatformIO will automatically install all required dependencies.
+
+### Step 5: Gas Sensor Calibration (Mandatory!)
+
+Gas sensors will not be accurate without calibration.
+
+1.  **Warm-up (Burn-in):** After assembling and uploading the code, let the device run for **15-30 minutes** for the gas sensors to stabilize.
+2.  **Observe Normal Values:** Open the **Serial Monitor** in PlatformIO (Baud Rate: `115200`). In clean air, note the average values for `LPG (MQ-6)` and `Smoke (MQ-2)`. They might be around 1500.
+3.  **Set Thresholds:** Open the `src/main.cpp` file and change the `LPG_THRESHOLD` and `SMOKE_THRESHOLD` values to be higher than the normal values (e.g., normal value + 500).
+4.  **Re-upload:** Save and upload the code again.
+
+### Step 5: Usage and Monitoring
+
+1.  **Upload Code:** Click the **Upload (→)** icon in the PlatformIO status bar.
+2.  **Monitor System:** Click the **Serial Monitor (🔌)** icon to see the real-time system log.
+3.  **Understanding the Pump Logs:**
+    - `IDLE`: System is normal, waiting for a request.
+    - `WAITING FOR WATER`: The tank is requesting water, but the main pipe is empty. The intermittent alarm will be active.
+    - `TESTING`: Water is present in the pipe; the pump is running a flow verification test.
+    - `RUNNING`: The test was successful; the pump is running normally. The flow rate will be displayed.
+    - `LOCKED OUT`: The test failed (pump might be jammed/flow is too weak); the pump is shut down for 15 minutes.
+
+---
 
 ## 💡 Potential Enhancements
 
-- **IoT Connectivity:** Add Wi-Fi connectivity to send alarm notifications to a mobile phone via Telegram, Pushover, or MQTT.
-- **Intermittent Alarm:** Create more dynamic alarm patterns (e.g., beeping sounds) using `millis()` to avoid blocking delays.
-- **Local Display:** Integrate an OLED or LCD screen to display sensor status directly on the device.
-- **Water Flow Sensor:** Add a water flow sensor to detect water usage, as per the original project plan.
-- **Data Logging:** Save sensor data to an SD card or SPIFFS for historical analysis.
+- **IoT Connectivity:** Add notifications to Telegram or MQTT for alarms or pump failures.
+- **Local Display:** Integrate an OLED screen to display status without needing a computer.
+- **Data Logging:** Store event history to an SD card or internal memory.
+
+## 🤝 Contributing
+
+This is an *open-source* project, and contributions are highly encouraged. Feel free to create a *pull request* or open an *issue*.
+
+## ⚠️ Disclaimer
+
+This software is provided 'as is'. The use, modification, or sale of any system built upon this code is entirely at the user's own risk. The contributors are not liable for any damage, loss, or misuse that may arise from the use of this system.
 
 ## 📄 License
 
-This project is licensed under the MIT License.
+This project is licensed under the **MIT License**.
 
 ---
 *Built with a spirit of exploration and safety.*
