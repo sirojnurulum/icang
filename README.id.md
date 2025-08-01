@@ -51,61 +51,44 @@ Ikuti langkah-langkah berikut secara berurutan untuk merakit dan menjalankan sis
 
 Hubungkan semua sensor dan modul ke ESP32 sesuai tabel berikut. Perhatikan pin `VIN` (untuk 5V) dan `3V3` (untuk 3.3V).
 
-| Komponen | Pin Komponen | Terhubung ke Pin ESP32 |
-|:---|:---|:---|
-| **Sensor Api** | `VCC`, `GND`, `DO` | `3V3`, `GND`, `GPIO 27` |
-| **Sensor Gas MQ-6 (LPG)** | `VCC`, `GND`, `AO` | `VIN`, `GND`, `GPIO 34` |
-| **Sensor Gas MQ-2 (Asap)** | `VCC`, `GND`, `AO` | `VIN`, `GND`, `GPIO 35` |
-| **Speaker Pasif** | `+`, `-` | `GPIO 25`, `GND` |
-| **Sensor Tegangan AC** | `VCC`, `GND`, `Signal/OUT` | `3V3`, `GND`, `GPIO 32` |
-| **Sensor Level Kapasitif** | `VCC (Coklat)`, `GND (Biru)`, `Signal (Hitam)` | `VIN`, `GND`, `GPIO 13` |
-| **Sensor Aliran Air** | `VCC (Merah)`, `GND (Hitam)`, `Signal (Kuning)` | `VIN`, `GND`, `GPIO 12` |
-| **Modul Relay** | `VCC`, `GND`, `IN` | `VIN`, `GND`, `GPIO 26` |
+| Komponen | Pin Komponen | Terhubung ke Pin ESP32 | Keterangan |
+|:---|:---|:---|:---|
+| **Sensor Api** | `VCC`, `GND`, `DO` | `3V3`, `GND`, `GPIO 27` | |
+| **Sensor Gas MQ-6 (LPG)** | `VCC`, `GND`, `AO` | `VIN`, `GND`, `GPIO 34` | |
+| **Sensor Gas MQ-2 (Asap)** | `VCC`, `GND`, `AO` | `VIN`, `GND`, `GPIO 35` | |
+| **Speaker Pasif** | `+`, `-` | `GPIO 25`, `GND` | |
+| **Sensor Tegangan AC** | `VCC`, `GND`, `Signal/OUT` | `3V3`, `GND`, `GPIO 32` | |
+| **Sensor Level Kapasitif** | `VCC (Coklat)`, `GND (Biru)`, `Signal (Hitam)` | `VIN`, `GND`, `GPIO 13` | Kabel Kuning (Mode) tidak perlu disambungkan. |
+| **Sensor Aliran Air** | `VCC (Merah)`, `GND (Hitam)`, `Signal (Kuning)` | `VIN`, `GND`, `GPIO 12` | |
+| **Modul Relay** | `VCC`, `GND`, `IN` | `VIN`, `GND`, `GPIO 26` | |
 
 #### B. Koneksi Tegangan Tinggi (AC 220V)
 
 > **⚠️ PERINGATAN KERAS:** Bagian ini melibatkan listrik tegangan tinggi yang **SANGAT BERBAHAYA**. Kesalahan dapat menyebabkan cedera serius atau kematian. Jika Anda tidak 100% yakin, mintalah bantuan teknisi listrik profesional. **Pastikan sumber listrik utama (MCB) ke pompa sudah dimatikan sepenuhnya sebelum memulai.**
 
-Sistem ini akan "mencegat" sinyal dari saklar tandon Anda.
+Sistem ini akan "mencegat" kabel perintah tunggal yang berasal dari saklar otomatis di tandon Anda.
 
 1.  **Identifikasi Kabel:**
-    - **Kabel Sumber Fasa & Netral:** Dari sumber listrik PLN.
-    - **Kabel Permintaan:** Kabel Fasa yang keluar dari saklar otomatis tandon Anda.
+    - **Kabel Perintah:** Kabel Fasa tunggal yang keluar dari saklar otomatis tandon Anda dan menuju ke pompa.
+    - **Kabel Netral & Ground:** Kabel yang langsung terhubung dari sumber PLN ke pompa.
 
-2.  **Sambungkan "Kabel Permintaan" ke Dua Tempat:**
-    - **Ke Sensor Deteksi AC:** Sambungkan `Kabel Permintaan` ke satu input sensor, dan `Kabel Sumber Netral` ke input lainnya. Ini memberitahu ESP32 bahwa tandon meminta air.
-    - **Ke Modul Relay:** Buat cabang dari `Kabel Permintaan` dan sambungkan ke terminal **`COM`** pada relay.
+2.  **Potong Kabel Perintah:** Potong `Kabel Perintah` di lokasi yang mudah dijangkau. Anda kini memiliki dua ujung:
+    - **Ujung A:** Yang berasal **DARI** saklar tandon.
+    - **Ujung B:** Yang menuju **KE** pompa.
 
-3.  **Sambungkan Relay ke Pompa:**
-    - Sambungkan terminal **`NO` (Normally Open)** pada relay ke terminal **Fasa** Pompa Air.
+3.  **Sambungkan Ujung A (Sumber Perintah):**
+    - Sambungkan `Ujung A` ke terminal **`COM` (Common)** pada Modul Relay.
+    - Buat cabang/jumper dari `Ujung A` dan sambungkan ke **salah satu terminal input AC** pada Sensor Deteksi Tegangan AC.
 
-4.  **Sambungkan Netral Pompa:**
-    - Sambungkan `Kabel Sumber Netral` langsung ke terminal **Netral** Pompa Air.
+4.  **Lengkapi Sirkuit Sensor Deteksi AC:**
+    - Sambungkan **terminal input AC lainnya** pada sensor ke **Kabel Netral** utama. Ini diperlukan agar sensor dapat bekerja.
 
-### Langkah 3: Setup Notifikasi Telegram
+5.  **Sambungkan Ujung B (Menuju Pompa):**
+    - Sambungkan `Ujung B` ke terminal **`NO` (Normally Open)** pada Modul Relay.
 
-Untuk menerima notifikasi real-time di ponsel Anda, Anda perlu membuat sebuah Bot Telegram.
+Dengan cara ini, saat tandon kosong, `Ujung A` menjadi aktif. Sensor AC mendeteksinya dan memberitahu ESP32. Jika logika sistem mengizinkan, ESP32 akan mengaktifkan relay, menyambungkan `COM` ke `NO`, dan mengalirkan listrik ke pompa melalui `Ujung B`.
 
-1.  **Buat Bot Baru:**
-    - Di aplikasi Telegram, cari akun bernama `BotFather` (ada tanda centang biru).
-    - Mulai percakapan dan ketik `/newbot`.
-    - Ikuti instruksinya: beri nama untuk bot Anda (misal: "Alarm Rumah Pintar") dan username (harus diakhiri `bot`, misal: `AlarmRumahPintarBot`).
-    - **BotFather** akan memberikan Anda sebuah **Token API** rahasia. Salin dan simpan token ini baik-baik.
-
-2.  **Dapatkan Chat ID:**
-    - **Untuk Notifikasi Pribadi:** Cari bot `userinfobot`, mulai percakapan, dan ia akan langsung memberikan **Chat ID** numerik Anda.
-    - **Untuk Notifikasi Grup:**
-        1. Buat grup baru di Telegram.
-        2. Tambahkan bot yang baru saja Anda buat sebagai anggota grup.
-        3. Tambahkan `userinfobot` ke dalam grup.
-        4. Ketik `/my_id` di dalam grup. `userinfobot` akan membalas dengan **Chat ID** grup tersebut. ID ini akan berupa angka negatif (contoh: `-1001234567890`).
-
-3.  **Perbarui Kode Program:**
-    - Buka file `src/main.cpp`.
-    - Cari bagian `WiFi & Telegram Configuration`.
-    - Ganti nilai placeholder untuk `WIFI_SSID`, `WIFI_PASSWORD`, `TELEGRAM_BOT_TOKEN`, dan `TELEGRAM_CHAT_ID` dengan kredensial Anda yang sebenarnya.
-
-### Langkah 4: Setup Perangkat Lunak
+### Langkah 3: Setup Perangkat Lunak
 
 1.  **Instalasi:**
     - Instal **Visual Studio Code**.
@@ -115,7 +98,7 @@ Untuk menerima notifikasi real-time di ponsel Anda, Anda perlu membuat sebuah Bo
     - Buka folder proyek di VS Code (`File > Open Folder...`).
     - PlatformIO akan secara otomatis menginstal semua kebutuhan yang diperlukan.
 
-### Langkah 5: Kalibrasi Sensor Gas (Wajib!)
+### Langkah 4: Kalibrasi Sensor Gas (Wajib!)
 
 Sensor gas tidak akan akurat tanpa kalibrasi.
 

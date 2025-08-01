@@ -51,61 +51,44 @@ Follow these steps sequentially to assemble and run the system.
 
 Connect all sensors and modules to the ESP32 according to the following table. Pay attention to the `VIN` (for 5V) and `3V3` (for 3.3V) pins.
 
-| Component | Component Pins | Connect to ESP32 Pins |
-|:---|:---|:---|
-| **Flame Sensor** | `VCC`, `GND`, `DO` | `3V3`, `GND`, `GPIO 27` |
-| **MQ-6 Gas Sensor (LPG)** | `VCC`, `GND`, `AO` | `VIN`, `GND`, `GPIO 34` |
-| **MQ-2 Gas Sensor (Smoke)** | `VCC`, `GND`, `AO` | `VIN`, `GND`, `GPIO 35` |
-| **Passive Speaker** | `+`, `-` | `GPIO 25`, `GND` |
-| **AC Voltage Sensor** | `VCC`, `GND`, `Signal/OUT` | `3V3`, `GND`, `GPIO 32` |
-| **Capacitive Level Sensor** | `VCC (Brown)`, `GND (Blue)`, `Signal (Black)` | `VIN`, `GND`, `GPIO 13` |
-| **Water Flow Sensor** | `VCC (Red)`, `GND (Black)`, `Signal (Yellow)` | `VIN`, `GND`, `GPIO 12` |
-| **Relay Module** | `VCC`, `GND`, `IN` | `VIN`, `GND`, `GPIO 26` |
+| Component | Component Pins | Connect to ESP32 Pins | Notes |
+|:---|:---|:---|:---|
+| **Flame Sensor** | `VCC`, `GND`, `DO` | `3V3`, `GND`, `GPIO 27` | |
+| **MQ-6 Gas Sensor (LPG)** | `VCC`, `GND`, `AO` | `VIN`, `GND`, `GPIO 34` | |
+| **MQ-2 Gas Sensor (Smoke)** | `VCC`, `GND`, `AO` | `VIN`, `GND`, `GPIO 35` | |
+| **Passive Speaker** | `+`, `-` | `GPIO 25`, `GND` | |
+| **AC Voltage Sensor** | `VCC`, `GND`, `Signal/OUT` | `3V3`, `GND`, `GPIO 32` | |
+| **Capacitive Level Sensor** | `VCC (Brown)`, `GND (Blue)`, `Signal (Black)` | `VIN`, `GND`, `GPIO 13` | The Yellow (Mode) wire does not need to be connected. |
+| **Water Flow Sensor** | `VCC (Red)`, `GND (Black)`, `Signal (Yellow)` | `VIN`, `GND`, `GPIO 12` | |
+| **Relay Module** | `VCC`, `GND`, `IN` | `VIN`, `GND`, `GPIO 26` | |
 
 #### B. High-Voltage Connections (AC 220V)
 
 > **⚠️ CRITICAL WARNING:** This section involves high-voltage electricity which is **EXTREMELY DANGEROUS**. Mistakes can lead to serious injury or death. If you are not 100% confident, **it is highly recommended to seek help from a professional electrician.** Ensure the main power source (MCB) to the pump is completely turned off before starting.
 
-This system intercepts the signal from your mechanical float switch.
+This system intercepts the single command wire coming from the automatic float switch in your water tank.
 
 1.  **Identify Wires:**
-    - **Live & Neutral Source Wires:** From your main power supply.
-    - **Request Wire:** The Live wire coming *out* of your tank's float switch.
+    - **Command Wire:** The single Live/Phase wire that comes from your tank's float switch and goes to the pump.
+    - **Neutral & Ground Wires:** The wires that go directly from the power source to the pump.
 
-2.  **Connect the "Request Wire" to Two Places:**
-    - **To the AC Voltage Sensor:** Connect the `Request Wire` to one AC input terminal on the sensor. Connect the `Neutral Source Wire` to the other AC input terminal. This tells the ESP32 that the tank is requesting water.
-    - **To the Relay Module:** Branch the `Request Wire` and connect it to the **`COM` (Common)** terminal on the relay.
+2.  **Cut the Command Wire:** Cut the `Command Wire` at a convenient location. You now have two ends:
+    - **End A:** The end coming **FROM** the tank's float switch.
+    - **End B:** The end going **TO** the pump.
 
-3.  **Connect the Relay to the Pump:**
-    - Connect the **`NO` (Normally Open)** terminal on the relay to the **Live** terminal of the Water Pump.
+3.  **Connect End A (The Command Source):**
+    - Connect `End A` to the **`COM` (Common)** terminal on the Relay Module.
+    - Branch/jumper from `End A` and connect it to **one of the AC input terminals** on the AC Voltage Detection Sensor.
 
-4.  **Connect the Pump's Neutral:**
-    - Connect the `Neutral Source Wire` directly to the **Neutral** terminal of the Water Pump.
+4.  **Complete the AC Voltage Sensor Circuit:**
+    - Connect the **other AC input terminal** on the sensor to the main **Neutral Wire**. This is required for the sensor to operate.
 
-### Step 3: Telegram Bot Setup (for Notifications)
+5.  **Connect End B (To the Pump):**
+    - Connect `End B` to the **`NO` (Normally Open)** terminal on the Relay Module.
 
-To receive real-time notifications on your phone, you need to create a Telegram Bot.
+This way, when the tank is empty, `End A` becomes live. The AC sensor detects this and informs the ESP32. If the system logic allows, the ESP32 activates the relay, connecting `COM` to `NO`, and sending power to the pump via `End B`.
 
-1.  **Create a New Bot:**
-    - In the Telegram app, search for `BotFather` (it has a blue checkmark).
-    - Start a chat and type `/newbot`.
-    - Follow the instructions to give your bot a name (e.g., "Smart Home Alarm") and a username (which must end in `bot`, e.g., `MySmartHomeAlertBot`).
-    - **BotFather** will give you a secret **API Token**. Copy and save this token carefully.
-
-2.  **Get Your Chat ID:**
-    - **For Personal Notifications:** Search for the `userinfobot`, start a chat, and it will immediately give you your numeric **Chat ID**.
-    - **For Group Notifications:**
-        1. Create a new Telegram group.
-        2. Add the bot you just created as a member of the group.
-        3. Add `userinfobot` to the group.
-        4. Type `/my_id` in the group. `userinfobot` will reply with the group's **Chat ID**. It will be a negative number (e.g., `-1001234567890`).
-
-3.  **Update the Code:**
-    - Open the `src/main.cpp` file.
-    - Find the `WiFi & Telegram Configuration` section.
-    - Replace the placeholder values for `WIFI_SSID`, `WIFI_PASSWORD`, `TELEGRAM_BOT_TOKEN`, and `TELEGRAM_CHAT_ID` with your actual credentials.
-
-### Step 4: Software Setup
+### Step 3: Software Setup
 
 1.  **Installation:**
     - Install **Visual Studio Code**.
@@ -115,45 +98,9 @@ To receive real-time notifications on your phone, you need to create a Telegram 
     - Open the project folder in VS Code (`File > Open Folder...`).
     - PlatformIO will automatically install all required dependencies.
 
-### Step 5: Gas Sensor Calibration (Mandatory!)
+### Step 4: Gas Sensor Calibration (Mandatory!)
 
 Gas sensors will not be accurate without calibration.
 
 1.  **Warm-up (Burn-in):** After assembling and uploading the code, let the device run for **15-30 minutes** for the gas sensors to stabilize.
-2.  **Observe Normal Values:** Open the **Serial Monitor** in PlatformIO (Baud Rate: `115200`). In clean air, note the average values for `LPG (MQ-6)` and `Smoke (MQ-2)`. They might be around 1500.
-3.  **Set Thresholds:** Open the `src/main.cpp` file and change the `LPG_THRESHOLD` and `SMOKE_THRESHOLD` values to be higher than the normal values (e.g., normal value + 500).
-4.  **Re-upload:** Save and upload the code again.
-
-### Step 5: Usage and Monitoring
-
-1.  **Upload Code:** Click the **Upload (→)** icon in the PlatformIO status bar.
-2.  **Monitor System:** Click the **Serial Monitor (🔌)** icon to see the real-time system log.
-3.  **Understanding the Pump Logs:**
-    - `IDLE`: System is normal, waiting for a request.
-    - `WAITING FOR WATER`: The tank is requesting water, but the main pipe is empty. The intermittent alarm will be active.
-    - `TESTING`: Water is present in the pipe; the pump is running a flow verification test.
-    - `RUNNING`: The test was successful; the pump is running normally. The flow rate will be displayed.
-    - `LOCKED OUT`: The test failed (pump might be jammed/flow is too weak); the pump is shut down for 15 minutes.
-
----
-
-## 💡 Potential Enhancements
-
-- **IoT Connectivity:** Add notifications to Telegram or MQTT for alarms or pump failures.
-- **Local Display:** Integrate an OLED screen to display status without needing a computer.
-- **Data Logging:** Store event history to an SD card or internal memory.
-
-## 🤝 Contributing
-
-This is an *open-source* project, and contributions are highly encouraged. Feel free to create a *pull request* or open an *issue*.
-
-## ⚠️ Disclaimer
-
-This software is provided 'as is'. The use, modification, or sale of any system built upon this code is entirely at the user's own risk. The contributors are not liable for any damage, loss, or misuse that may arise from the use of this system.
-
-## 📄 License
-
-This project is licensed under the **MIT License**.
-
----
-*Built with a spirit of exploration and safety.*
+2.  **Observe Normal Values:**
