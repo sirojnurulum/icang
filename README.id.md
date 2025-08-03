@@ -18,8 +18,8 @@ Proyek ini adalah sebuah inisiatif *open-source* untuk mengubah rumah konvension
   - **Verifikasi Dua Langkah:** Mencegah pompa berjalan kering dengan memeriksa **keberadaan air** di pipa terlebih dahulu, lalu memverifikasi **aliran air** setelah pompa menyala.
   - **Monitoring Aliran:** Mengukur dan menampilkan laju aliran air (Liter per Menit) saat pompa beroperasi.
 - **Sistem Peringatan Cerdas:**
-  - **Alarm Bahaya:** Nada alarm yang berbeda untuk setiap jenis bahaya (api, gas, asap).
-  - **Alarm Pompa:** Alarm putus-putus yang khas jika tandon meminta air tetapi pasokan dari sumber (PDAM) tidak tersedia.
+  - **Alarm Bahaya Desibel Tinggi:** Menggunakan buzzer aktif 12V untuk peringatan yang sangat keras saat api, gas, atau asap terdeteksi.
+  - **Alarm Status Pompa:** Menggunakan speaker pasif untuk notifikasi putus-putus yang informatif (misalnya, saat menunggu air).
 - **Arsitektur Kode Profesional:**
   - **Non-Blocking:** Seluruh sistem berjalan tanpa `delay()` yang mengganggu, memastikan responsivitas tinggi.
   - **State Machine:** Mengelola status setiap modul (alarm, pompa) secara efisien dan terstruktur.
@@ -38,11 +38,13 @@ Ikuti langkah-langkah berikut secara berurutan untuk merakit dan menjalankan sis
 | 1x | Sensor Api (Flame Sensor) | Mendeteksi nyala api. |
 | 1x | Sensor Gas MQ-6 | Mendeteksi kebocoran gas LPG. |
 | 1x | Sensor Gas MQ-2 | Mendeteksi asap. |
-| 1x | Speaker Pasif | Memberikan alarm suara. |
+| 1x | Speaker Pasif | Memberikan alarm suara untuk status pompa. |
+| 1x | Buzzer Aktif 12V (min. 110dB) | Memberikan alarm bahaya yang sangat keras. |
 | 1x | Modul Deteksi Tegangan AC | Mendeteksi permintaan dari saklar tandon. |
 | 1x | Sensor Level Kapasitif (XKC-Y25-NPN) | Memeriksa keberadaan air di pipa. |
 | 1x | Sensor Aliran Air (YF-S201) | Memverifikasi dan mengukur aliran air. |
-| 1x | Modul Relay 1-Channel 5V (min. 10A) | Saklar elektronik untuk mengontrol pompa. |
+| 1x | Modul Relay 1-Channel 5V (min. 10A) | Saklar elektronik untuk mengontrol Pompa Air 220V. |
+| 1x | Modul MOSFET P-Channel (mis. IRF5305S) | Untuk mengontrol Buzzer Aktif 12V. Alternatif: Modul Relay 5V. |
 | 1x | Breadboard & Kabel Jumper | Untuk merangkai sirkuit. |
 
 ### Langkah 2: Perakitan dan Penyambungan Kabel
@@ -56,11 +58,12 @@ Hubungkan semua sensor dan modul ke ESP32 sesuai tabel berikut. Perhatikan pin `
 | **Sensor Api** | `VCC`, `GND`, `DO` | `3V3`, `GND`, `GPIO 27` | |
 | **Sensor Gas MQ-6 (LPG)** | `VCC`, `GND`, `AO` | `VIN`, `GND`, `GPIO 34` | |
 | **Sensor Gas MQ-2 (Asap)** | `VCC`, `GND`, `AO` | `VIN`, `GND`, `GPIO 35` | |
-| **Speaker Pasif** | `+`, `-` | `GPIO 25`, `GND` | |
+| **Speaker Pasif (Alarm Pompa)** | `+`, `-` | `GPIO 25`, `GND` | |
 | **Sensor Tegangan AC** | `VCC`, `GND`, `Signal/OUT` | `3V3`, `GND`, `GPIO 32` | |
 | **Sensor Level Kapasitif** | `VCC (Coklat)`, `GND (Biru)`, `Signal (Hitam)` | `VIN`, `GND`, `GPIO 13` | Kabel Kuning (Mode) tidak perlu disambungkan. |
 | **Sensor Aliran Air** | `VCC (Merah)`, `GND (Hitam)`, `Signal (Kuning)` | `VIN`, `GND`, `GPIO 12` | |
-| **Modul Relay** | `VCC`, `GND`, `IN` | `VIN`, `GND`, `GPIO 26` | |
+| **Modul Relay (Pompa)** | `VCC`, `GND`, `IN` | `VIN`, `GND`, `GPIO 26` | |
+| **Modul MOSFET (Buzzer 12V)** | `VCC`, `GND`, `SIG/IN` | `3V3`, `GND`, `GPIO 14` | `VCC` bisa ke `3V3` atau `VIN` tergantung spesifikasi modul. |
 
 #### B. Koneksi Tegangan Tinggi (AC 220V)
 
@@ -87,6 +90,19 @@ Sistem ini akan "mencegat" kabel perintah tunggal yang berasal dari saklar otoma
     - Sambungkan `Ujung B` ke terminal **`NO` (Normally Open)** pada Modul Relay.
 
 Dengan cara ini, saat tandon kosong, `Ujung A` menjadi aktif. Sensor AC mendeteksinya dan memberitahu ESP32. Jika logika sistem mengizinkan, ESP32 akan mengaktifkan relay, menyambungkan `COM` ke `NO`, dan mengalirkan listrik ke pompa melalui `Ujung B`.
+
+#### C. Koneksi Buzzer Aktif 12V
+
+> **⚠️ PERHATIAN:** Buzzer ini membutuhkan catu daya 12V eksternal dan tidak bisa dihubungkan langsung ke ESP32. Gunakan modul kontrol seperti MOSFET atau Relay.
+
+1.  **Hubungkan Modul MOSFET ke ESP32:** Sesuai tabel di atas, hubungkan pin `VCC`, `GND`, dan `SIG` (atau `IN`) dari modul MOSFET ke `3V3`, `GND`, dan `GPIO 14` di ESP32.
+2.  **Hubungkan Catu Daya 12V ke Modul:**
+    -   Hubungkan kutub **positif (+)** dari catu daya 12V ke terminal input daya pada modul (sering ditandai `VIN+`, `V+`, atau `Power+`).
+    -   Hubungkan kutub **negatif (-)** dari catu daya 12V ke terminal input ground pada modul (sering ditandai `VIN-`, `GND`, atau `Power-`).
+3.  **Hubungkan Buzzer ke Modul:**
+    -   Hubungkan kabel **merah (+)** dari Buzzer Aktif ke terminal output pada modul (sering ditandai `OUT+` atau `Load+`).
+    -   Hubungkan kabel **hitam (-)** dari Buzzer Aktif ke terminal output ground pada modul (sering ditandai `OUT-` atau `Load-`).
+4.  **Pastikan Common Ground:** Sangat penting untuk menghubungkan pin `GND` dari ESP32, `GND` dari modul MOSFET, dan kutub **negatif (-)** dari catu daya 12V bersama-sama. Ini memastikan semua komponen memiliki titik referensi tegangan yang sama.
 
 ### Langkah 3: Setup Perangkat Lunak
 

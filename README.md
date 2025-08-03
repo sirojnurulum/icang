@@ -18,8 +18,8 @@ This project is an *open-source* initiative to transform a conventional house in
   - **Two-Step Verification:** Prevents the pump from running dry by first checking for **water presence** in the pipe, then verifying the **water flow** after the pump starts.
   - **Flow Monitoring:** Measures and displays the water flow rate (Liters per Minute) while the pump is operating.
 - **Intelligent Alert System:**
-  - **Hazard Alarms:** Distinct alarm tones for each type of hazard (fire, gas, smoke).
-  - **Pump Alarm:** A unique, intermittent alarm if the water tank requests water but the main supply is unavailable.
+  - **High-Decibel Hazard Alarm:** Uses a 12V active buzzer for an extremely loud warning when fire, gas, or smoke is detected.
+  - **Pump Status Alerts:** Uses a passive speaker for informative, intermittent notifications (e.g., when waiting for water).
 - **Professional Code Architecture:**
   - **Non-Blocking:** The entire system runs without disruptive `delay()` calls, ensuring high responsiveness.
   - **State Machines:** Efficiently and structurally manages the status of each module (alarms, pump).
@@ -38,11 +38,13 @@ Follow these steps sequentially to assemble and run the system.
 | 1x | Flame Sensor | Detects open flames. |
 | 1x | MQ-6 Gas Sensor | Detects LPG gas leaks. |
 | 1x | MQ-2 Gas Sensor | Detects smoke. |
-| 1x | Passive Speaker | Provides audible alarms. |
+| 1x | Passive Speaker | Provides audible alerts for pump status. |
+| 1x | 12V Active Buzzer (110dB min.) | Provides a very loud hazard alarm. |
 | 1x | AC Voltage Detection Module | Senses requests from the tank's float switch. |
 | 1x | Capacitive Level Sensor (XKC-Y25-NPN) | Checks for the presence of water in the pipe. |
 | 1x | Water Flow Sensor (YF-S201) | Verifies and measures water flow. |
-| 1x | 1-Channel 5V Relay Module (10A min.) | Electronic switch to control the pump. |
+| 1x | 1-Channel 5V Relay Module (10A min.) | Electronic switch to control the 220V Water Pump. |
+| 1x | P-Channel MOSFET Module (e.g., IRF5305S) | To control the 12V Active Buzzer. Alternative: 5V Relay Module. |
 | 1x | Breadboard & Jumper Wires | For assembling the circuit. |
 
 ### Step 2: Assembly and Wiring
@@ -56,11 +58,12 @@ Connect all sensors and modules to the ESP32 according to the following table. P
 | **Flame Sensor** | `VCC`, `GND`, `DO` | `3V3`, `GND`, `GPIO 27` | |
 | **MQ-6 Gas Sensor (LPG)** | `VCC`, `GND`, `AO` | `VIN`, `GND`, `GPIO 34` | |
 | **MQ-2 Gas Sensor (Smoke)** | `VCC`, `GND`, `AO` | `VIN`, `GND`, `GPIO 35` | |
-| **Passive Speaker** | `+`, `-` | `GPIO 25`, `GND` | |
+| **Passive Speaker (Pump Alerts)** | `+`, `-` | `GPIO 25`, `GND` | |
 | **AC Voltage Sensor** | `VCC`, `GND`, `Signal/OUT` | `3V3`, `GND`, `GPIO 32` | |
 | **Capacitive Level Sensor** | `VCC (Brown)`, `GND (Blue)`, `Signal (Black)` | `VIN`, `GND`, `GPIO 13` | The Yellow (Mode) wire does not need to be connected. |
 | **Water Flow Sensor** | `VCC (Red)`, `GND (Black)`, `Signal (Yellow)` | `VIN`, `GND`, `GPIO 12` | |
-| **Relay Module** | `VCC`, `GND`, `IN` | `VIN`, `GND`, `GPIO 26` | |
+| **Relay Module (Pump)** | `VCC`, `GND`, `IN` | `VIN`, `GND`, `GPIO 26` | |
+| **MOSFET Module (12V Buzzer)** | `VCC`, `GND`, `SIG/IN` | `3V3`, `GND`, `GPIO 14` | `VCC` can be `3V3` or `VIN` depending on the module's specs. |
 
 #### B. High-Voltage Connections (AC 220V)
 
@@ -88,6 +91,13 @@ This system intercepts the single command wire coming from the automatic float s
 
 This way, when the tank is empty, `End A` becomes live. The AC sensor detects this and informs the ESP32. If the system logic allows, the ESP32 activates the relay, connecting `COM` to `NO`, and sending power to the pump via `End B`.
 
+#### C. 12V Active Buzzer Connection
+
+> **⚠️ CAUTION:** This buzzer requires an external 12V power supply and cannot be connected directly to the ESP32. Use a relay or MOSFET module to control it.
+
+1.  **Connect Relay Module to ESP32:** As per the table above, connect the `VCC`, `GND`, and `IN` pins of the relay module to `VIN`, `GND`, and `GPIO 14` on the ESP32.
+2.  **Connect Buzzer to Relay:**
+    -   Connect the **positive (+)** terminal of your 12V power supply to the **`
 ### Step 3: Software Setup
 
 1.  **Installation:**

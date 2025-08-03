@@ -12,13 +12,14 @@ const int FLOW_SENSOR_PIN = 12;           // Input pulsa dari water flow sensor
 const int PUMP_RELAY_PIN = 26;            // Output untuk mengontrol relay pompa
 
 // Alarm System (Output)
-const int SPEAKER_PIN = 25; // Pin untuk Speaker Pasif
+const int SPEAKER_PIN = 25;       // Pin untuk Speaker Pasif (Alarm Pompa)
+const int ACTIVE_BUZZER_PIN = 14; // Pin untuk Active Buzzer 12V (Alarm Bahaya) via Relay/MOSFET
 
 // --- Alarm Thresholds ---
 // CATATAN: Nilai ini HARUS dikalibrasi sesuai lingkungan Anda!
 // Nilai yang lebih tinggi berarti konsentrasi gas/asap lebih banyak.
 const int LPG_THRESHOLD = 2200;   // Nilai baru setelah kalibrasi (Normal Anda ~1500)
-const int SMOKE_THRESHOLD = 2200; // Nilai baru setelah kalibrasi (Normal Anda ~1500) 
+const int SMOKE_THRESHOLD = 2200; // Nilai baru setelah kalibrasi (Normal Anda ~1500)
 
 // --- Pump Control Configuration ---
 const unsigned long STARTUP_DELAY_MS = 3000;           // 3 detik untuk stabilisasi saat startup
@@ -27,6 +28,9 @@ const unsigned long PUMP_LOCKOUT_DURATION_MS = 900000; // 15 menit jika gagal
 const unsigned long MAX_NO_FLOW_DURATION_MS = 10000;   // Toleransi 10 detik tanpa aliran saat RUNNING
 const int FLOW_PULSE_THRESHOLD = 10;                   // Minimal 10 pulsa untuk dianggap ada aliran
 const float FLOW_CALIBRATION_FACTOR = 450.0;           // Pulsa per liter untuk YF-S201
+
+// --- Optional Features ---
+const bool ENABLE_WATER_PRESENCE_CHECK = true; // Set ke 'false' untuk menonaktifkan sensor keberadaan air
 
 // --- Debounce Configuration ---
 const unsigned long DEBOUNCE_DELAY_MS = 50; // 50ms untuk mengabaikan getaran sinyal
@@ -61,19 +65,19 @@ PumpState currentPumpState = PUMP_STARTUP;
 
 // --- Global Variables ---
 // Sensor States (with debounce)
-bool pumpRequestState = false;            // Status permintaan tandon yang stabil
-bool waterPresenceState = false;          // Status keberadaan air yang stabil
-int lastPumpRequestReading = HIGH;        // Pembacaan terakhir pin permintaan
-int lastWaterPresenceReading = LOW;       // Pembacaan terakhir pin air
-unsigned long debounceTimer = 0;          // Timer untuk debounce
+bool pumpRequestState = false;      // Status permintaan tandon yang stabil
+bool waterPresenceState = false;    // Status keberadaan air yang stabil
+int lastPumpRequestReading = HIGH;  // Pembacaan terakhir pin permintaan
+int lastWaterPresenceReading = LOW; // Pembacaan terakhir pin air
+unsigned long debounceTimer = 0;    // Timer untuk debounce
 
 // Timers and Counters
-volatile int flowPulseCounter = 0;        // Dihitung oleh interrupt, harus volatile
-unsigned long pumpStateTimer = 0;         // Timer untuk state pompa
-unsigned long flowRateTimer = 0;          // Timer untuk menghitung laju aliran
-int lastSecondPulseCount = 0;             // Pulsa yang dihitung dalam 1 detik terakhir
-unsigned long noFlowTimer = 0;            // Timer untuk mendeteksi ketiadaan aliran saat RUNNING
-unsigned long serialPrintTimer = 0;       // Timer untuk membatasi output serial
+volatile int flowPulseCounter = 0;  // Dihitung oleh interrupt, harus volatile
+unsigned long pumpStateTimer = 0;   // Timer untuk state pompa
+unsigned long flowRateTimer = 0;    // Timer untuk menghitung laju aliran
+int lastSecondPulseCount = 0;       // Pulsa yang dihitung dalam 1 detik terakhir
+unsigned long noFlowTimer = 0;      // Timer untuk mendeteksi ketiadaan aliran saat RUNNING
+unsigned long serialPrintTimer = 0; // Timer untuk membatasi output serial
 
 // Alarm States
 bool isIntermittentAlarmActive = false;   // Flag untuk mengaktifkan alarm putus-putus
@@ -103,10 +107,12 @@ void setup()
   // Konfigurasi pin output
   pinMode(SPEAKER_PIN, OUTPUT);
   pinMode(PUMP_RELAY_PIN, OUTPUT);
+  pinMode(ACTIVE_BUZZER_PIN, OUTPUT);
 
-  // Kondisi awal: pastikan pompa dan alarm mati
+  // Kondisi awal: pastikan pompa dan semua alarm mati
   digitalWrite(PUMP_RELAY_PIN, LOW); // LOW = Relay tidak aktif (pompa mati)
   noTone(SPEAKER_PIN);
+  digitalWrite(ACTIVE_BUZZER_PIN, LOW); // Pastikan buzzer aktif mati
 
   // Konfigurasi Interrupt untuk sensor aliran
   // Akan memanggil countFlowPulse() setiap kali ada sinyal NAIK (RISING) dari sensor
@@ -129,21 +135,25 @@ void loop()
   int currentWaterPresenceReading = digitalRead(WATER_PRESENCE_SENSOR_PIN);
 
   // Cek apakah ada perubahan pada salah satu pin
-  if (currentPumpRequestReading != lastPumpRequestReading || currentWaterPresenceReading != lastWaterPresenceReading) {
+  if (currentPumpRequestReading != lastPumpRequestReading || currentWaterPresenceReading != lastWaterPresenceReading)
+  {
     // Jika ada perubahan, reset debounce timer
     debounceTimer = millis();
   }
 
   // Jika tidak ada perubahan selama durasi debounce
-  if ((millis() - debounceTimer) > DEBOUNCE_DELAY_MS) {
+  if ((millis() - debounceTimer) > DEBOUNCE_DELAY_MS)
+  {
     // Update status stabil hanya jika pembacaan saat ini berbeda dari status stabil terakhir
     bool newPumpRequestState = (currentPumpRequestReading == LOW);
-    if (newPumpRequestState != pumpRequestState) {
+    if (newPumpRequestState != pumpRequestState)
+    {
       pumpRequestState = newPumpRequestState;
     }
 
     bool newWaterPresenceState = (currentWaterPresenceReading == HIGH);
-    if (newWaterPresenceState != waterPresenceState) {
+    if (newWaterPresenceState != waterPresenceState)
+    {
       waterPresenceState = newWaterPresenceState;
     }
   }
@@ -197,7 +207,10 @@ void triggerAlarm(AlarmType type, int toneFrequency)
       message = "🌫️ BAHAYA: ASAP TERDETEKSI!";
 
     Serial.println("!!! " + message + " !!!");
-    tone(SPEAKER_PIN, toneFrequency);
+    // Mengaktifkan buzzer aktif 12V untuk alarm bahaya.
+    // Juga mematikan alarm pompa (speaker pasif) jika kebetulan sedang aktif.
+    digitalWrite(ACTIVE_BUZZER_PIN, HIGH);
+    noTone(SPEAKER_PIN);
   }
 }
 
@@ -207,12 +220,14 @@ void stopAlarm()
   {
     currentAlarm = ALARM_OFF;
     Serial.println("Kondisi kembali aman.");
-    noTone(SPEAKER_PIN);
+    // Mematikan buzzer aktif 12V
+    digitalWrite(ACTIVE_BUZZER_PIN, LOW);
   }
 }
 
 // Fungsi untuk mencetak semua status ke Serial Monitor
-void printSystemStatus(int flame, int lpg, int smoke) {
+void printSystemStatus(int flame, int lpg, int smoke)
+{
   if (millis() - serialPrintTimer >= 1000)
   {
     Serial.print("Api: ");
@@ -251,16 +266,22 @@ void printSystemStatus(int flame, int lpg, int smoke) {
       flowPulseCounter = 0;
       interrupts();
       float flowRateLPM = (lastSecondPulseCount * 60.0) / FLOW_CALIBRATION_FACTOR;
-      Serial.print("[INFO] Laju Aliran Air: "); Serial.print(flowRateLPM); Serial.println(" L/min");
+      Serial.print("[INFO] Laju Aliran Air: ");
+      Serial.print(flowRateLPM);
+      Serial.println(" L/min");
       flowRateTimer = millis();
 
       // Logika pengawas aliran saat pompa RUNNING
-      if (flowRateLPM < 0.1) { // Jika aliran sangat rendah atau nol
-        if (noFlowTimer == 0) { // Jika timer belum dimulai, mulai sekarang
+      if (flowRateLPM < 0.1)
+      { // Jika aliran sangat rendah atau nol
+        if (noFlowTimer == 0)
+        { // Jika timer belum dimulai, mulai sekarang
           Serial.println("[PERINGATAN] Aliran berhenti saat pompa berjalan. Memulai timer pengaman...");
           noFlowTimer = millis();
         }
-      } else { // Jika aliran normal
+      }
+      else
+      {                  // Jika aliran normal
         noFlowTimer = 0; // Reset timer jika ada aliran
       }
     }
@@ -328,7 +349,8 @@ void handlePumpLogic()
   {
   case PUMP_STARTUP:
     // Tunggu beberapa detik agar semua sensor stabil
-    if (millis() - pumpStateTimer >= STARTUP_DELAY_MS) {
+    if (millis() - pumpStateTimer >= STARTUP_DELAY_MS)
+    {
       Serial.println("[INFO] Mode startup selesai. Sistem siap beroperasi.");
       currentPumpState = PUMP_IDLE;
     }
@@ -338,8 +360,8 @@ void handlePumpLogic()
     // Jika ada permintaan dari tandon
     if (pumpRequestState)
     {
-      // Dan jika air memang tersedia di pipa (pre-check)
-      if (waterPresenceState)
+      // Pemeriksaan ini hanya dilakukan jika fiturnya diaktifkan
+      if (!ENABLE_WATER_PRESENCE_CHECK || waterPresenceState)
       {
         noFlowTimer = 0; // Pastikan timer pengaman direset sebelum tes
         Serial.println("[POMPA] Pre-check berhasil. Memulai tes verifikasi aliran...");
@@ -348,6 +370,7 @@ void handlePumpLogic()
         pumpStateTimer = millis();          // Mulai timer tes
         currentPumpState = PUMP_TESTING;
       }
+      // Blok ini hanya akan berjalan jika pemeriksaan diaktifkan DAN air tidak ada
       else
       {
         Serial.println("[POMPA] Permintaan terdeteksi tapi pipa kosong. Masuk mode menunggu.");
@@ -399,9 +422,10 @@ void handlePumpLogic()
 
   case PUMP_RUNNING:
     // Matikan pompa jika permintaan dari tandon berhenti (tandon penuh) ATAU jika air tiba-tiba hilang
-    if (!pumpRequestState || !waterPresenceState)
+    // Pemeriksaan keberadaan air hanya dilakukan jika fiturnya diaktifkan
+    if (!pumpRequestState || (ENABLE_WATER_PRESENCE_CHECK && !waterPresenceState))
     {
-      noFlowTimer = 0; // Reset timer pengaman
+      noFlowTimer = 0;                   // Reset timer pengaman
       isIntermittentAlarmActive = false; // Pastikan alarm mati
       Serial.println("[POMPA] Tandon penuh (permintaan berhenti) atau pasokan air hilang. Mematikan pompa.");
       digitalWrite(PUMP_RELAY_PIN, LOW);
@@ -409,7 +433,8 @@ void handlePumpLogic()
     }
 
     // Cek pengawas aliran. Jika tidak ada aliran terlalu lama, masuk ke lockout.
-    if (noFlowTimer != 0 && (millis() - noFlowTimer > MAX_NO_FLOW_DURATION_MS)) {
+    if (noFlowTimer != 0 && (millis() - noFlowTimer > MAX_NO_FLOW_DURATION_MS))
+    {
       Serial.println("[POMPA] GAGAL: Aliran berhenti total saat pompa berjalan! Masuk mode lockout.");
       digitalWrite(PUMP_RELAY_PIN, LOW); // Matikan pompa
       pumpStateTimer = millis();         // Mulai timer lockout
